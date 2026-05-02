@@ -1,0 +1,253 @@
+si
+% Max Z = x1 + 2x2 + 3x3 + 0 x4 + 0 x5
+% st -> x1 + 2x2 + x4 = 20
+% -> 3x1 + 4x3 + x5 = 30 
+% all vars > 0
+
+% Phase 1 
+clc;
+clear all;
+
+C = [1 2 3 0 0];                
+A = [1 2 0 1 0  ; 3 0 4 0 1];   
+b = [20 ; 30];                  
+
+m = size(A, 1);                 
+n = size(A, 2);                 
+
+% Phase 2
+
+bv_index = n - m + 1 : n ;      
+                                
+Y = [A b];
+for s = 1:50
+    CB = C(bv_index);               % cost coefficients of the current basic variables
+    Xb = Y(:, end);                 % inv(B) * b / current values of basic variables = the RHS column
+    Z = CB * Xb;                    % Current objective value
+    ZjCj = CB * Y(:, 1:n) - C;      % transpose(Cb) * Alpha^j - Cj 
+
+    Table = [ZjCj Z; Y]             
+
+    % Phase 3 - Checking for optimality
+    if all(ZjCj >= 0)
+        disp('Optimal solution found.');
+        disp('Basic Variables (Xb):');
+        disp(Xb);
+        disp('Optimal Value (Z):');
+        disp(Z);
+        break;
+    
+    else
+        % 1) Identify Entering Variable (EV)
+        [min_val, EV] = min(ZjCj);   
+    
+        if all(Y(:, EV) <= 0)
+            disp('Unbounded Solution');
+            break;
+        end
+   
+        ratio = inf(m,1);
+    
+        for j = 1:m
+            if Y(j, EV) > 0
+                ratio(j) = Xb(j) / Y(j, EV);
+            end
+        end
+    
+        [min_ratio, Lv] = min(ratio);   
+    
+        pivot = Y(Lv, EV);
+        Y(Lv, :) = Y(Lv, :) / pivot;
+   
+        for i = 1:m
+            if i ~= Lv
+                Y(i, :) = Y(i, :) - Y(i, EV) * Y(Lv, :);
+            end
+        end
+    
+        bv_index(Lv) = EV;
+    end
+end
+
+
+bi
+% Max z = -2x1 - x2
+% subject to
+% 3x1 + x2 = 3
+% 4x1 + 3x2 >= 6
+% x1 + 2x2 <= 4
+% x1, x2 >= 0
+
+%% Phase 1 
+clc;
+clear all;
+
+M = 1000; 
+
+C = [-2 -1 0 -M -M 0];                             
+A = [3 1 0 1 0 0  ; 4 3 -1 0 1 0 ; 1 2 0 0 0 1];   
+b = [3 ; 6 ; 4];                                
+
+m = size(A, 1);          
+n = size(A, 2);               
+
+%% Phase 2
+
+bv_index = n - m + 1 : n ;     
+                          
+Y = [A b];
+for s = 1:50
+    CB = C(bv_index);             
+    Xb = Y(:, end);                 % inv(B) * b / current values of basic variables
+    Z = CB * Xb;                   
+    ZjCj = CB * Y(:, 1:n) - C;      % transpose(Cb) * Alpha^j - Cj 
+
+    Table = [ZjCj Z; Y]            
+
+    %% Phase 3 - Checking for optimality
+    if all(ZjCj >= 0)
+        disp('Optimal solution found.');
+        disp('Basic Variables (Xb):');
+        disp(Xb);
+        disp('Basis Indexes:');
+        disp(bv_index);
+        disp('Optimal Value (Z):');
+        disp(Z);
+        break;
+    
+    else
+        % 1) Identify Entering Variable (EV)
+        [min_val, EV] = min(ZjCj);   % most negative value enters
+    
+        % 2) Check for Unboundedness
+        if all(Y(:, EV) <= 0)
+            disp('Unbounded Solution');
+            break;
+        end
+    
+        % 3) Ratio Test (to find Leaving Variable)
+        disp('Calculating Ratios...');
+        ratio = inf(m,1);   % initialize with infinity
+    
+        for j = 1:m
+            if Y(j, EV) > 0
+                ratio(j) = Xb(j) / Y(j, EV);
+            end
+        end
+    
+        [min_ratio, Lv] = min(ratio);
+    
+        % 4) Pivot Operation
+        pivot = Y(Lv, EV);
+    
+        % Normalize pivot row
+        Y(Lv, :) = Y(Lv, :) / pivot;
+    
+        % Make other entries in pivot column zero
+        for i = 1:m
+            if i ~= Lv
+                Y(i, :) = Y(i, :) - Y(i, EV) * Y(Lv, :);
+            end
+        end
+    
+        % 5) Update Basis
+        bv_index(Lv) = EV;
+    end
+end
+
+
+
+steep
+% QUESTION IS - PERFORM 4 ITERATIONS OF STEEPEST DESCENT ALGORITHM TO MINIMIZE
+% f(x1,x2)=x1-x2+2x1^2+2x1x2+x2^2
+% Starting from the point X1=[1,1]
+format short % Display output upto 4 digits
+clear all    % clear all the stored values
+clc          % Clear the screen
+
+% Phase 1- Define objective function
+syms x1 x2
+f1 = x1-x2+2*x1^2+2*x1*x2+x2^2;
+fx = inline(f1); % to convert f1 into a function of x1 and x2.
+fobj = @(x) fx(x(:,1),x(:,2)); %convert the function in one variable
+
+% Phase 2- Compute gradient of f
+grad = gradient(f1);
+G = inline(grad); % to convert grad into a function of x1 and x2.
+gradx = @(x) G(x(:,1),x(:,2)); %convert the function in one variable
+
+% Phase 3- Compute Hessian Matrix
+H1 = hessian(f1);
+Hx = inline(H1); % to convert H1 into a function
+
+% Phase 4- Iterations
+x0 = [1 1]; % given initial value of x1 x2
+maxiter = 4; % maximum number of iteration
+tol = 10^(-3); % maximum tolerance or error in our answer
+iter = 0; % iteration counter / initial counter
+X = []; % initial vector array
+
+while norm(gradx(x0))>tol && iter<maxiter
+    X = [X;x0]; % save all vectors
+    S = -gradx(x0); % compute gradient at X
+    H = Hx(x0); % compute Hessian at X
+    lambda = S'*S./(S'*H*S); % compute lambda
+    Xnew = x0+lambda.*S'; % update X
+    x0 = Xnew; % save new X
+    iter = iter+1; % update iteration number
+end
+
+% Phase 5- Print the solution
+fprintf('Optimal Solution x=[%f, %f]\n',x0(1),x0(2))
+fprintf('Optimal Value f(x) = %f \n',fobj(x0))
+
+
+tp
+
+clc;
+clear;
+cost = [11 13 17 14 ; 16 18 14 10; 21 24 13 10];
+supply = [10 5 9];
+demand = [8 7 15 4];
+
+m = size(cost,1);
+n = size(cost,2);
+
+S = sum(supply);
+D = sum(demand);
+
+if (S == D)
+    disp('BalancedTP')
+
+elseif (D > S)
+    cost(end+1,:) = zeros(1,n);
+    supply(end+1) = D-S;
+
+else 
+    cost(:,end+1) = zeros(m,1);
+    demand(end+1) = S-D;
+end
+
+disp ('BalancedTP talbe')
+Table = [cost supply' ; demand sum(supply)]
+[m,n] = size(cost);
+
+X=zeros(m,n);
+Icost=cost;
+
+while(any(supply~=0) || any(demand~=0))
+    min_cost=min(cost(:));
+    [r c]=find(cost==min_cost);
+    y=min(supply(r),demand(c));
+    [aloc,index]=max(y);
+    rr=r(index);
+    cc=c(index);
+    X(rr,cc)=aloc;
+    supply(rr)=supply(rr)-aloc;
+    demand(cc)=demand(cc)-aloc;
+    cost(rr,cc)=inf;
+end
+
+cost_eachcell=X.*Icost;
+total_cost=sum(cost_eachcell(:))
+display(X)
